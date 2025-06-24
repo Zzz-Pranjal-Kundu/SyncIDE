@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import NavigationHeader from "@/components/NavigationHeader";
-import { Code, FileText, ListChecks } from "lucide-react";
+import { Code, FileJson, FileText, ListChecks } from "lucide-react";
 
 const analysisData = [
   {
@@ -23,6 +23,12 @@ const analysisData = [
     description: "Ensure code logic and meaning are valid semantically.",
     icon: <Code className="w-8 h-8 text-green-400" />,
     href: "/analyse/semantic",
+  },
+  {
+    title: "Intermediate Code Generation",
+    description: "Code's abstract, machine-independent representation.",
+    icon: <FileJson className="w-8 h-8 text-teal-400" />,
+    href: "/analyse/intermediateCode",
   },
 ];
 
@@ -50,7 +56,7 @@ function AnalysePage() {
             transition={{ delay: 0.1 }}
             className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-100 to-gray-300 text-transparent bg-clip-text mb-6"
           >
-            Code Analysis Suite
+            Dive into the world of Compiler
           </motion.h1>
           <motion.p
             initial={{ opacity: 0 }}
