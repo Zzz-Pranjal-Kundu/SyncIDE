@@ -1,10 +1,4 @@
-import { TokenType } from "../../lexical/_components/lexicalAnalyzer";
-
-interface Token {
-  token: string;
-  type: TokenType;
-  value: string;
-}
+import { Token, TokenType } from "../../lexical/_components/lexicalAnalyzer";
 
 export type { Token, TokenType };
 
@@ -82,7 +76,10 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
 
   function parseAdditive(): ParseNode | null {
     let node = parseMultiplicative();
-    while (current() && (current()!.token === "+" || current()!.token === "-")) {
+    while (
+      current() &&
+      (current()!.token === "+" || current()!.token === "-")
+    ) {
       const op = current()!;
       advance();
       const right = parseMultiplicative();
@@ -96,7 +93,10 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
 
   function parseMultiplicative(): ParseNode | null {
     let node = parsePrimary();
-    while (current() && (current()!.token === "*" || current()!.token === "/")) {
+    while (
+      current() &&
+      (current()!.token === "*" || current()!.token === "/")
+    ) {
       const op = current()!;
       advance();
       const right = parsePrimary();
@@ -168,7 +168,7 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
       return node;
     }
 
-    while (current() && current()!.token !== "}") {
+    while (current() && current()?.token !== "}") {
       const stmt = parseStatement();
       if (stmt) node.children!.push(stmt);
     }
@@ -182,7 +182,7 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
 
   function parseIfStatement(): ParseNode {
     const node: ParseNode = { label: "IfStatement", children: [] };
-    advance(); // consume 'if'
+    advance();
 
     if (!matchToken("(")) {
       errors.push("Expected '(' after 'if'");
@@ -212,7 +212,7 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
 
   function parseWhileStatement(): ParseNode {
     const node: ParseNode = { label: "WhileStatement", children: [] };
-    advance(); // consume 'while'
+    advance();
 
     if (!matchToken("(")) {
       errors.push("Expected '(' after 'while'");
@@ -224,7 +224,7 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
       children: condition ? [condition] : [],
     });
 
-    if (!matchToken(")") && current()?.token !== "{") {
+    if (!matchToken(")")) {
       errors.push("Expected ')' after condition");
     }
 
@@ -236,9 +236,9 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
 
   function parseOutputStatement(): ParseNode | null {
     const node: ParseNode = { label: "OutputStatement", children: [] };
-    advance(); // consume 'cout'
+    advance();
 
-    while (current() && current()!.token === "<<") {
+    while (current() && current()?.token === "<<") {
       advance();
       const expr = parseExpression();
       if (expr) node.children!.push(expr);
@@ -257,20 +257,10 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
 
   function parseDeclaration(): ParseNode | null {
     const typeToken = current();
-
-    const declarationStarters = ["int", "float", "char", "double", "bool", "string", "var", "let", "const"];
-    if (
-      !typeToken ||
-      typeToken.type !== "keyword" ||
-      !declarationStarters.includes(typeToken.token)
-    ) {
-      return null; // Don't push error here to avoid false positives
-    }
-
-    advance(); // consume the type token
+    if (!matchType("keyword")) return null;
 
     const declNode: ParseNode = {
-      label: `Declaration: ${typeToken.token}`,
+      label: `Declaration: ${typeToken!.token}`,
       children: [],
     };
 
@@ -316,12 +306,60 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
     return node;
   }
 
+  function parseFunction(): ParseNode | null {
+    const returnType = current();
+    if (!matchType("keyword")) return null;
+
+    const identifier = current();
+    if (!matchType("identifier")) return null;
+
+    if (!matchToken("(")) {
+      errors.push("Expected '(' after function name");
+      return null;
+    }
+
+    if (!matchToken(")")) {
+      errors.push("Expected ')' after function parameters");
+      return null;
+    }
+
+    const body = parseBlock();
+
+    return {
+      label: `Declaration: ${returnType!.token}`,
+      children: [
+        {
+          label: `Identifier: ${identifier!.token}`,
+          children: [body],
+        },
+      ],
+    };
+  }
+
+  function parseReturnStatement(): ParseNode {
+    const node: ParseNode = { label: "ReturnStatement", children: [] };
+    advance();
+
+    const expr = parseExpression();
+    if (expr) node.children!.push(expr);
+
+    if (!matchToken(";")) {
+      errors.push("Expected ';' after return statement");
+    }
+
+    return node;
+  }
+
   function parseStatement(): ParseNode | null {
     const token = current();
     if (!token) return null;
 
     if (token.type === "keyword" && token.token === "if") {
       return parseIfStatement();
+    }
+
+    if (token.type === "keyword" && token.token === "return") {
+      return parseReturnStatement();
     }
 
     if (token.type === "keyword" && token.token === "while") {
@@ -332,8 +370,7 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
       return parseBlock();
     }
 
-    const declarationStarters = ["int", "float", "char", "double", "bool", "string", "var", "let", "const"];
-    if (token.type === "keyword" && declarationStarters.includes(token.token)) {
+    if (token.type === "keyword") {
       return parseDeclaration();
     }
 
@@ -357,23 +394,26 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
       return stmt;
     }
 
-    // Skip unsupported/unknown statements silently without error
+    errors.push(`Unknown statement starting with '${token.token}'`);
     advance();
     return null;
   }
 
   while (index < tokens.length) {
-    const startIndex = index;
+    const token = current();
+    if (
+      token?.type === "keyword" &&
+      tokens[index + 1]?.type === "identifier" &&
+      tokens[index + 2]?.token === "("
+    ) {
+      const func = parseFunction();
+      if (func) root.children!.push(func);
+      continue;
+    }
+
     const stmt = parseStatement();
     if (stmt) root.children!.push(stmt);
-
-    // Ensure we always move forward
-    if (index === startIndex) {
-      errors.push(`Could not parse token '${tokens[index].token}' at position ${index}`);
-      index++;
-    }
   }
 
   return { root, errors };
 }
-
