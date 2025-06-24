@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import TokenTable from "./_components/TokenTable";
 import { analyzeCode, type Token } from "./_components/lexicalAnalyzer";
-import AnalyzeHeader from "./_components/Header";
+import AnalyzeHeader from "../../../../src/components/Header";
 
 export default function LexicalPage() {
   const router = useRouter();
 
-  const [language, setLanguage] = useState("c");
+  const [language, setLanguage] = useState("cpp");
   const [code, setCode] = useState("");
   const [tokens, setTokens] = useState<Token[]>([]);
 
@@ -33,11 +33,7 @@ export default function LexicalPage() {
 
   return (
     <div className="min-h-screen px-4 py-3 flex flex-col relative">
-      <AnalyzeHeader />
-
-      <header className="max-w-6xl mx-auto mb-10 flex items-center justify-center">
-        <h1 className="text-white text-4xl font-bold">Lexical Analysis</h1>
-      </header>
+      <AnalyzeHeader text="Lexical Analysis" />
 
       <main className="flex flex-col md:flex-row gap-10 flex-1 max-w-12xl mx-auto px-4 md:px-8 w-full">
         {/* Code Editor Section */}
