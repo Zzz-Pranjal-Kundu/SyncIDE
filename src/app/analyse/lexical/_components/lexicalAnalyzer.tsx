@@ -4,7 +4,8 @@ export type TokenType =
   | "number"
   | "string"
   | "operator"
-  | "symbol";
+  | "symbol"
+  | "preprocessor";
 
 export interface Token {
   token: string;
@@ -27,7 +28,7 @@ const languageKeywords: Record<string, Set<string>> = {
     "switch", "template", "this", "thread_local", "throw", "true", "try", "typedef",
     "typeid", "typename", "union", "unsigned", "using", "virtual", "void",
     "volatile", "wchar_t", "while", "xor", "xor_eq"
-    ]),
+  ]),
   java: new Set([
     "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char",
     "class", "const", "continue", "default", "do", "double", "else", "enum",
@@ -36,13 +37,13 @@ const languageKeywords: Record<string, Set<string>> = {
     "package", "private", "protected", "public", "return", "short", "static",
     "strictfp", "super", "switch", "synchronized", "this", "throw", "throws",
     "transient", "try", "void", "volatile", "while", "true", "false"
-    ]),
+  ]),
   python: new Set([
     "False", "None", "True", "and", "as", "assert", "async", "await", "break",
     "class", "continue", "def", "del", "elif", "else", "except", "finally",
     "for", "from", "global", "if", "import", "in", "is", "lambda", "nonlocal",
     "not", "or", "pass", "raise", "return", "try", "while", "with", "yield"
-    ]),
+  ]),
   javascript: new Set([
     "await", "break", "case", "catch", "class", "const", "continue", "debugger",
     "default", "delete", "do", "else", "enum", "export", "extends", "false",
@@ -50,17 +51,16 @@ const languageKeywords: Record<string, Set<string>> = {
     "new", "null", "package", "private", "protected", "public", "return", "static",
     "super", "switch", "this", "throw", "true", "try", "typeof", "var", "void",
     "while", "with", "yield"
-    ]),
+  ]),
 };
 
-// Operators by language
 const languageOperators: Record<string, string[]> = {
   cpp: [
-    "==", "!=", "<=", ">=", "&&", "\\|\\|", "\\+\\+", "--", "\\+=", "-=", "\\*=", "/=", "=", 
-    "\\+", "-", "\\*", "/", "%", "<", ">", "!", "&", "\\|", "\\^", "~"
+    "==", "!=", "<=", ">=", "&&", "\\|\\|", "\\+\\+", "--", "\\+=", "-=", "\\*=", "/=", "=",
+    "\\+", "-", "\\*", "/", "%", "<", ">", "!", "&", "\\|", "\\^", "~", "<<", ">>"
   ],
   java: [
-    "==", "!=", "<=", ">=", "&&", "\\|\\|", "\\+\\+", "--", "\\+=", "-=", "\\*=", "/=", "=", 
+    "==", "!=", "<=", ">=", "&&", "\\|\\|", "\\+\\+", "--", "\\+=", "-=", "\\*=", "/=", "=",
     "\\+", "-", "\\*", "/", "%", "<", ">", "!", "&", "\\|", "\\^", "~"
   ],
   python: [
@@ -73,7 +73,6 @@ const languageOperators: Record<string, string[]> = {
   ],
 };
 
-// Symbols by language
 const languageSymbols: Record<string, string[]> = {
   cpp: ["\\(", "\\)", "\\{", "\\}", "\\[", "\\]", ";", ",", "\\.", ":"],
   java: ["\\(", "\\)", "\\{", "\\}", "\\[", "\\]", ";", ",", "\\.", ":"],
@@ -84,66 +83,78 @@ const languageSymbols: Record<string, string[]> = {
 export function analyzeCode(code: string, language: string): Token[] {
   const tokens: Token[] = [];
   let pos = 0;
+  const lang = language.toLowerCase().replace("c++", "cpp"); // Normalize language
 
-  const keywords = languageKeywords[language.toLowerCase()] || new Set();
-  const ops = languageOperators[language.toLowerCase()] || [];
-  const syms = languageSymbols[language.toLowerCase()] || [];
+  const keywords = languageKeywords[lang] ?? new Set();
+  const ops = languageOperators[lang] ?? [];
+  const syms = languageSymbols[lang] ?? [];
 
-  const operatorRegex = new RegExp(`^(${ops.join("|")})`);
-  const symbolRegex = new RegExp(`^(${syms.join("|")})`);
+  const sortedOps = [...ops].sort((a, b) => b.length - a.length);
+  const operatorRegex = sortedOps.length ? new RegExp(`^(${sortedOps.join("|")})`) : /^$/;
+  const symbolRegex = syms.length ? new RegExp(`^(${syms.join("|")})`) : /^$/;
 
-  const cleanCode = code.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, ""); // remove comments
+  const cleanCode = code.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, "");
 
   while (pos < cleanCode.length) {
     const chunk = cleanCode.slice(pos);
 
-    if (/^\s+/.test(chunk)) {
-      pos += chunk.match(/^\s+/)![0].length;
+    // Whitespace
+    const whitespace = chunk.match(/^\s+/);
+    if (whitespace) {
+      pos += whitespace[0].length;
+      continue;
+    }
+
+    // Preprocessor directive
+    const preprocessorMatch = chunk.match(/^#\s*\w+.*(\n|$)/);
+    if (preprocessorMatch) {
+      tokens.push({ token: preprocessorMatch[0].trim(), type: "preprocessor" });
+      pos += preprocessorMatch[0].length;
       continue;
     }
 
     // String
-    if (/^(['"])(?:\\.|[^\\])*?\1/.test(chunk)) {
-      const match = chunk.match(/^(['"])(?:\\.|[^\\])*?\1/)!;
-      tokens.push({ token: match[0], type: "string" });
-      pos += match[0].length;
+    const stringMatch = chunk.match(/^(['"])(?:\\.|[^\\])*?\1/);
+    if (stringMatch) {
+      tokens.push({ token: stringMatch[0], type: "string" });
+      pos += stringMatch[0].length;
       continue;
     }
 
     // Number
-    if (/^\d+(\.\d+)?/.test(chunk)) {
-      const match = chunk.match(/^\d+(\.\d+)?/)!;
-      tokens.push({ token: match[0], type: "number" });
-      pos += match[0].length;
+    const numberMatch = chunk.match(/^\d+(\.\d+)?/);
+    if (numberMatch) {
+      tokens.push({ token: numberMatch[0], type: "number" });
+      pos += numberMatch[0].length;
       continue;
     }
 
     // Operator
-    if (operatorRegex.test(chunk)) {
-      const match = chunk.match(operatorRegex)!;
-      tokens.push({ token: match[0], type: "operator" });
-      pos += match[0].length;
+    const operatorMatch = chunk.match(operatorRegex);
+    if (operatorMatch) {
+      tokens.push({ token: operatorMatch[0], type: "operator" });
+      pos += operatorMatch[0].length;
       continue;
     }
 
     // Symbol
-    if (symbolRegex.test(chunk)) {
-      const match = chunk.match(symbolRegex)!;
-      tokens.push({ token: match[0], type: "symbol" });
-      pos += match[0].length;
+    const symbolMatch = chunk.match(symbolRegex);
+    if (symbolMatch) {
+      tokens.push({ token: symbolMatch[0], type: "symbol" });
+      pos += symbolMatch[0].length;
       continue;
     }
 
     // Identifier or Keyword
-    if (/^[a-zA-Z_]\w*/.test(chunk)) {
-      const match = chunk.match(/^[a-zA-Z_]\w*/)!;
-      const tokenType: TokenType = keywords.has(match[0])
-        ? "keyword"
-        : "identifier";
-      tokens.push({ token: match[0], type: tokenType });
-      pos += match[0].length;
+    const identifierMatch = chunk.match(/^[a-zA-Z_]\w*/);
+    if (identifierMatch) {
+      const word = identifierMatch[0];
+      const tokenType: TokenType = keywords.has(word) ? "keyword" : "identifier";
+      tokens.push({ token: word, type: tokenType });
+      pos += word.length;
       continue;
     }
+
     pos++;
   }
 
