@@ -1,3 +1,9 @@
+### DEMO:
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Zzz-Pranjal-Kundu/Portfolio/main/src/assets/projects/SyncIDEGIF.gif" width="600" alt="SyncIDE Demo"/>
+</p>
+
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
