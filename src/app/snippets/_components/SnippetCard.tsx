@@ -7,7 +7,7 @@ import { useState } from "react";
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Clock, StarIcon, Trash2, User } from "lucide-react";
+import { Clock, Trash2, User } from "lucide-react";
 import Image from "next/image";
 import toast from "react-hot-toast";
 import StarButton from "@/components/StarButton";

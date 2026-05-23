@@ -2,7 +2,6 @@ import { LANGUAGE_CONFIG } from "@/app/(root)/_constants";
 import { Monaco } from "@monaco-editor/react";
 import { create } from "zustand";
 import { CodeEditorState } from "./../types/index";
-import { compileFunction } from "vm";
 
 
 const getInitialState = () => {   // Loads persisted user preferences

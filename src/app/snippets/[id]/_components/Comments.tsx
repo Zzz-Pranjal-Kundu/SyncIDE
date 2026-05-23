@@ -1,9 +1,9 @@
 import { Id } from '../../../../../convex/_generated/dataModel'
 
-function Comments({snipptes}: {snipptes: Id<"snippets">}) {
+function Comments({snippetId}: {snippetId: Id<"snippets">}) {
   return (
-    <div>Comments</div>
-  )
+    <div data-snippet-id={snippetId}>Comments</div>
+  );
 }
 
 export default Comments

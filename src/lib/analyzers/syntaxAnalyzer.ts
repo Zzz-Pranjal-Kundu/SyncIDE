@@ -1,12 +1,6 @@
-import { TokenType } from "../../lexical/_components/lexicalAnalyzer";
+import {Token, TokenType} from "./lexicalAnalyzer";
 
-interface Token {
-  token: string;
-  type: TokenType;
-  value: string;
-}
-
-export type { Token, TokenType };
+export type {Token, TokenType};
 
 export interface ParseNode {
   label: string;
@@ -61,10 +55,12 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
     }
   }
 
+  // Parse expressions with relational operators for conditions
   function parseExpression(): ParseNode | null {
     return parseRelational();
   }
 
+  // Relational operators: <, <=, >, >=, ==, !=
   function parseRelational(): ParseNode | null {
     let node = parseAdditive();
     const relationalOps = ["<", "<=", ">", ">=", "==", "!="];
@@ -82,7 +78,10 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
 
   function parseAdditive(): ParseNode | null {
     let node = parseMultiplicative();
-    while (current() && (current()!.token === "+" || current()!.token === "-")) {
+    while (
+      current() &&
+      (current()!.token === "+" || current()!.token === "-")
+    ) {
       const op = current()!;
       advance();
       const right = parseMultiplicative();
@@ -96,7 +95,10 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
 
   function parseMultiplicative(): ParseNode | null {
     let node = parsePrimary();
-    while (current() && (current()!.token === "*" || current()!.token === "/")) {
+    while (
+      current() &&
+      (current()!.token === "*" || current()!.token === "/")
+    ) {
       const op = current()!;
       advance();
       const right = parsePrimary();
@@ -112,6 +114,7 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
     let token = current();
     if (!token) return null;
 
+    // Handle prefix ++ or --
     if (token.token === "++" || token.token === "--") {
       const op = token.token;
       advance();
@@ -126,6 +129,7 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
       };
     }
 
+    // Parenthesized expression
     if (token.token === "(") {
       advance();
       const expr = parseExpression();
@@ -135,14 +139,16 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
       return expr;
     }
 
+    // Identifier, number, or string literal
     if (
       token.type === "identifier" ||
       token.type === "number" ||
       token.type === "string"
     ) {
       advance();
-      const node: ParseNode = { label: `Value: ${token.token}` };
+      const node: ParseNode = {label: `Value: ${token.token}`};
 
+      // Check postfix ++ or --
       token = current();
       if (token && (token.token === "++" || token.token === "--")) {
         const op = token.token;
@@ -162,13 +168,13 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
   }
 
   function parseBlock(): ParseNode {
-    const node: ParseNode = { label: "Block", children: [] };
+    const node: ParseNode = {label: "Block", children: []};
     if (!matchToken("{")) {
       errors.push("Expected '{' to start block");
       return node;
     }
 
-    while (current() && current()!.token !== "}") {
+    while (current() && current()?.token !== "}") {
       const stmt = parseStatement();
       if (stmt) node.children!.push(stmt);
     }
@@ -181,7 +187,7 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
   }
 
   function parseIfStatement(): ParseNode {
-    const node: ParseNode = { label: "IfStatement", children: [] };
+    const node: ParseNode = {label: "IfStatement", children: []};
     advance(); // consume 'if'
 
     if (!matchToken("(")) {
@@ -199,19 +205,19 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
     }
 
     const thenBlock = parseBlock();
-    node.children!.push({ label: "ThenBlock", children: thenBlock.children });
+    node.children!.push({label: "ThenBlock", children: thenBlock.children});
 
     if (current()?.token === "else") {
       advance();
       const elseBlock = parseBlock();
-      node.children!.push({ label: "ElseBlock", children: elseBlock.children });
+      node.children!.push({label: "ElseBlock", children: elseBlock.children});
     }
 
     return node;
   }
 
   function parseWhileStatement(): ParseNode {
-    const node: ParseNode = { label: "WhileStatement", children: [] };
+    const node: ParseNode = {label: "WhileStatement", children: []};
     advance(); // consume 'while'
 
     if (!matchToken("(")) {
@@ -224,21 +230,22 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
       children: condition ? [condition] : [],
     });
 
-    if (!matchToken(")") && current()?.token !== "{") {
+    if (!matchToken(")")) {
       errors.push("Expected ')' after condition");
     }
 
     const body = parseBlock();
-    node.children!.push({ label: "Body", children: body.children });
+    node.children!.push({label: "Body", children: body.children});
 
     return node;
   }
 
+  // Parse output statement: cout << expr << expr ... ;
   function parseOutputStatement(): ParseNode | null {
-    const node: ParseNode = { label: "OutputStatement", children: [] };
+    const node: ParseNode = {label: "OutputStatement", children: []};
     advance(); // consume 'cout'
 
-    while (current() && current()!.token === "<<") {
+    while (current() && current()?.token === "<<") {
       advance();
       const expr = parseExpression();
       if (expr) node.children!.push(expr);
@@ -255,25 +262,17 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
     return node;
   }
 
+  // Parse multiple declarators separated by commas: int y=0, x=0, a=0;
   function parseDeclaration(): ParseNode | null {
     const typeToken = current();
-
-    const declarationStarters = ["int", "float", "char", "double", "bool", "string", "var", "let", "const"];
-    if (
-      !typeToken ||
-      typeToken.type !== "keyword" ||
-      !declarationStarters.includes(typeToken.token)
-    ) {
-      return null; // Don't push error here to avoid false positives
-    }
-
-    advance(); // consume the type token
+    if (!matchType("keyword")) return null;
 
     const declNode: ParseNode = {
-      label: `Declaration: ${typeToken.token}`,
+      label: `Declaration: ${typeToken!.token}`,
       children: [],
     };
 
+    // Parse first declarator
     const firstDecl = parseDeclarator();
     if (!firstDecl) {
       errors.push("Expected identifier in declaration");
@@ -281,6 +280,7 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
     }
     declNode.children!.push(firstDecl);
 
+    // Parse more declarators separated by commas
     while (current()?.token === ",") {
       advance();
       const nextDecl = parseDeclarator();
@@ -298,6 +298,7 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
     return declNode;
   }
 
+  // Parse a declarator: identifier [= expression]
   function parseDeclarator(): ParseNode | null {
     const identifier = current();
     if (!matchType("identifier")) return null;
@@ -316,12 +317,60 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
     return node;
   }
 
+  function parseFunction(): ParseNode | null {
+    const returnType = current();
+    if (!matchType("keyword")) return null;
+
+    const identifier = current();
+    if (!matchType("identifier")) return null;
+
+    if (!matchToken("(")) {
+      errors.push("Expected '(' after function name");
+      return null;
+    }
+
+    if (!matchToken(")")) {
+      errors.push("Expected ')' after function parameters");
+      return null;
+    }
+
+    const body = parseBlock();
+
+    return {
+      label: `Declaration: ${returnType!.token}`,
+      children: [
+        {
+          label: `Identifier: ${identifier!.token}`,
+          children: [body],
+        },
+      ],
+    };
+  }
+
+  function parseReturnStatement(): ParseNode {
+    const node: ParseNode = {label: "ReturnStatement", children: []};
+    advance(); // consume 'return'
+
+    const expr = parseExpression();
+    if (expr) node.children!.push(expr);
+
+    if (!matchToken(";")) {
+      errors.push("Expected ';' after return statement");
+    }
+
+    return node;
+  }
+
   function parseStatement(): ParseNode | null {
     const token = current();
     if (!token) return null;
 
     if (token.type === "keyword" && token.token === "if") {
       return parseIfStatement();
+    }
+
+    if (token.type === "keyword" && token.token === "return") {
+      return parseReturnStatement();
     }
 
     if (token.type === "keyword" && token.token === "while") {
@@ -332,8 +381,7 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
       return parseBlock();
     }
 
-    const declarationStarters = ["int", "float", "char", "double", "bool", "string", "var", "let", "const"];
-    if (token.type === "keyword" && declarationStarters.includes(token.token)) {
+    if (token.type === "keyword") {
       return parseDeclaration();
     }
 
@@ -342,8 +390,8 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
     }
 
     if (token.type === "identifier") {
-      const stmt: ParseNode = { label: "Assignment", children: [] };
-      stmt.children!.push({ label: `Identifier: ${token.token}` });
+      const stmt: ParseNode = {label: "Assignment", children: []};
+      stmt.children!.push({label: `Identifier: ${token.token}`});
       advance();
       if (matchToken("=")) {
         const expr = parseExpression();
@@ -357,23 +405,29 @@ export function syntaxAnalyze(tokens: Token[]): SyntaxResult {
       return stmt;
     }
 
-    // Skip unsupported/unknown statements silently without error
+    errors.push(`Unknown statement starting with '${token.token}'`);
     advance();
     return null;
   }
 
   while (index < tokens.length) {
-    const startIndex = index;
+    const token = current();
+
+    // Detect function declaration (e.g., int main() { ... })
+    if (
+      token?.type === "keyword" &&
+      tokens[index + 1]?.type === "identifier" &&
+      tokens[index + 2]?.token === "("
+    ) {
+      const func = parseFunction();
+      if (func) root.children!.push(func);
+      continue;
+    }
+
+    // Fallback to regular statement
     const stmt = parseStatement();
     if (stmt) root.children!.push(stmt);
-
-    // Ensure we always move forward
-    if (index === startIndex) {
-      errors.push(`Could not parse token '${tokens[index].token}' at position ${index}`);
-      index++;
-    }
   }
 
-  return { root, errors };
+  return {root, errors};
 }
-
