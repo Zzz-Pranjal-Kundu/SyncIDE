@@ -4,7 +4,7 @@ SyncIDE is a production-grade, highly interactive web-based Integrated Developme
 
 Featuring an industrial code editor, real-time database synchronization, cloud security authentication, and an active visual compilation analysis pipeline, SyncIDE decomposes high-level code constructs into their primary compiler representations (tokens, parse trees, type systems, and intermediate code) dynamically as you type.
 
-🖥️ **Live Production Build:** [https://syncide-two.vercel.app](https://syncide-two.vercel.app)
+🖥️ **Live Production Build:** [https://sync-ide.vercel.app](https://sync-ide.vercel.app/)
 
 ---
 
